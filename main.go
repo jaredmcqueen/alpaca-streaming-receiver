@@ -6,7 +6,9 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync/atomic"
+	"time"
 
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
 	"github.com/go-redis/redis/v8"
@@ -14,7 +16,6 @@ import (
 )
 
 var rdb *redis.Client
-var pipe redis.Pipeliner
 var ctx context.Context
 
 func main() {
@@ -36,6 +37,7 @@ func main() {
 	}()
 
 	log.Println("connecting to redis endpoint", config.RedisEndpoint)
+	log.Printf("CPUs detected: %v", runtime.NumCPU())
 	rdb = redis.NewClient(&redis.Options{
 		Addr: config.RedisEndpoint,
 	})
@@ -104,6 +106,14 @@ func main() {
 		}
 		log.Println("exiting")
 		os.Exit(0)
+	}()
+	// periodically displaying number of trades/quotes/bars received so far
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			log.Println("trades:", tradeCount)
+			tradeCount = 0
+		}
 	}()
 
 	<-signalChan
