@@ -6,11 +6,16 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync/atomic"
 
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
 	"github.com/go-redis/redis/v8"
 	"github.com/jaredmcqueen/tick-receiver/util"
 )
+
+var rdb *redis.Client
+var pipe redis.Pipeliner
+var ctx context.Context
 
 func main() {
 	// load config
@@ -22,10 +27,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	tradeHandler := func(t stream.Trade) {
-		log.Printf("%+v", t)
-	}
-
 	// catch control+c
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
@@ -35,7 +36,7 @@ func main() {
 	}()
 
 	log.Println("connecting to redis endpoint", config.RedisEndpoint)
-	rdb := redis.NewClient(&redis.Options{
+	rdb = redis.NewClient(&redis.Options{
 		Addr: config.RedisEndpoint,
 	})
 
@@ -48,14 +49,47 @@ func main() {
 
 	// clear out the db
 	// TODO: make this an envar
-	if config.FlushDB {
-		log.Println("flushing redis DB")
-		rdb.FlushAll(ctx)
+	// if config.FlushDB {
+	// 	log.Println("flushing redis DB")
+	// 	rdb.FlushAll(ctx)
+	// }
+
+	// ID:2820
+	// Symbol:TSLA
+	// Exchange:X
+	// Price:850.76
+	// Size:1
+	// Timestamp:2022-03-09 13:52:04.967257986 -0500 EST
+	// Conditions:[@ I]
+	// Tape:C
+
+	var tradeCount int32
+
+	tradeHandler := func(t stream.Trade) {
+		atomic.AddInt32(&tradeCount, 1)
+		rdb.XAdd(ctx, &redis.XAddArgs{
+			Stream: fmt.Sprintf("trades.%v", t.Symbol),
+			ID:     "*",
+			Values: map[string]string{
+				"ID":         fmt.Sprintf("%v", t.ID),
+				"Symbol":     t.Symbol,
+				"Exchange":   t.Exchange,
+				"Price":      fmt.Sprintf("%v", t.Price),
+				"Size":       fmt.Sprintf("%v", t.Size),
+				"Timestamp":  fmt.Sprintf("%v", t.Timestamp.UnixMilli()),
+				"Conditions": fmt.Sprintf("%v", t.Conditions),
+				"Tape":       t.Tape,
+			},
+		})
 	}
+
+	// barHandler := func(b stream.Bar) {
+	// 	log.Printf("%+v", b)
+	// }
 
 	c := stream.NewStocksClient(
 		"sip",
-		stream.WithTrades(tradeHandler, "TSLA"),
+		stream.WithTrades(tradeHandler, "*"),
 	)
 
 	if err := c.Connect(ctx); err != nil {
