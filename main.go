@@ -6,12 +6,15 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"time"
 
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
 	"github.com/go-redis/redis/v8"
 	"github.com/jaredmcqueen/tick-receiver/util"
 )
+
+var tradesPerSecond int32
 
 func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 	ctx := context.Background()
@@ -36,7 +39,6 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 	pipe := rdb.Pipeline()
 	var pipePayload int32
 
-	time.Sleep(10 * time.Second)
 	start := time.Now()
 	for t := range tradeChan {
 		_ = t
@@ -94,6 +96,7 @@ func main() {
 	tradeChan := make(chan stream.Trade, 1_000_000)
 	tradeHandler := func(t stream.Trade) {
 		tradeChan <- t
+        atomic.AddInt32(&tradesPerSecond, 1)
 	}
 
 	// alpaca websocket client
@@ -121,6 +124,9 @@ func main() {
 		for {
 			time.Sleep(1 * time.Second)
 			log.Println("buffer length", len(tradeChan))
+			log.Println("websockets trades per second", tradesPerSecond)
+            tradesPerSecond = 0
+
 		}
 	}()
 
@@ -128,5 +134,5 @@ func main() {
 
 	<-signalChan
 	fmt.Print("received termination signal")
-	os.Exit(0)
 }
+	os.Exit(0)
