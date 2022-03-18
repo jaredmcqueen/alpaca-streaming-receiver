@@ -96,7 +96,7 @@ func main() {
 	tradeChan := make(chan stream.Trade, 1_000_000)
 	tradeHandler := func(t stream.Trade) {
 		tradeChan <- t
-        atomic.AddInt32(&tradesPerSecond, 1)
+		atomic.AddInt32(&tradesPerSecond, 1)
 	}
 
 	// alpaca websocket client
@@ -125,7 +125,7 @@ func main() {
 			time.Sleep(1 * time.Second)
 			log.Println("buffer length", len(tradeChan))
 			log.Println("websockets trades per second", tradesPerSecond)
-            tradesPerSecond = 0
+			tradesPerSecond = 0
 
 		}
 	}()
@@ -134,5 +134,5 @@ func main() {
 
 	<-signalChan
 	fmt.Print("received termination signal")
-}
 	os.Exit(0)
+}
