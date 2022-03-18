@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime"
 	"time"
 
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
@@ -15,20 +14,18 @@ import (
 )
 
 func redisWriter(config util.Config, tradeChan chan stream.Trade) {
-	var rdb *redis.Client
-	var ctx context.Context
+	ctx := context.Background()
 
 	log.Println("connecting to redis endpoint", config.RedisEndpoint)
-	rdb = redis.NewClient(&redis.Options{
+	rdb := redis.NewClient(&redis.Options{
 		Addr: config.RedisEndpoint,
 	})
-
 	// test redis connection
-	_, err := rdb.Ping(ctx).Result()
+	r, err := rdb.Ping(ctx).Result()
 	if err != nil {
 		log.Fatal("error", err)
 	}
-	log.Println("successfully connected to", config.RedisEndpoint)
+	log.Printf("%v successfully connected to %v\n", r, config.RedisEndpoint)
 
 	// clear out the db
 	if config.FlushDB {
@@ -39,8 +36,10 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 	pipe := rdb.Pipeline()
 	var pipePayload int32
 
+	time.Sleep(10 * time.Second)
 	start := time.Now()
 	for t := range tradeChan {
+		_ = t
 		pipe.XAdd(ctx, &redis.XAddArgs{
 			Stream: fmt.Sprintf("trades.%v", t.Symbol),
 			ID:     "*",
@@ -57,16 +56,17 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 		})
 		pipePayload++
 
-		//TODO: there has to be a more performant design pattern here
-		if time.Since(start).Milliseconds() >= config.BatchTime {
-			pipe.Exec(ctx)
-			log.Printf("reached %v milliseconds, sent %v trades", config.BatchTime, pipePayload)
+		if pipePayload >= 10_000 {
+			go pipe.Exec(ctx)
+			log.Printf("reached %v items in payload, sent %v trades", config.BatchSize, pipePayload)
 			start = time.Now()
 			pipePayload = 0
 		}
 
-		if pipePayload >= 10_000 {
-			pipe.Exec(ctx)
+		//TODO: there has to be a more performant design pattern here
+		if time.Since(start).Milliseconds() >= config.BatchTime {
+			go pipe.Exec(ctx)
+			log.Printf("reached %v milliseconds, sent %v trades", config.BatchTime, pipePayload)
 			start = time.Now()
 			pipePayload = 0
 		}
@@ -91,32 +91,37 @@ func main() {
 		cancel()
 	}()
 
-	log.Printf("CPUs detected: %v", runtime.NumCPU())
-
-	tradeChan := make(chan stream.Trade)
-
+	tradeChan := make(chan stream.Trade, 1_000_000)
 	tradeHandler := func(t stream.Trade) {
 		tradeChan <- t
 	}
 
-	c := stream.NewStocksClient(
+	// alpaca websocket client
+	wsc := stream.NewStocksClient(
 		"sip",
 		stream.WithTrades(tradeHandler, "*"),
 	)
 
-	if err := c.Connect(ctx); err != nil {
+	if err := wsc.Connect(ctx); err != nil {
 		log.Fatalf("could not connect to alpaca: %s", err)
 	}
 
 	log.Println("successfully connected to alpaca")
 	// starting a goroutine that checks whether the client has terminated
 	go func() {
-		err := <-c.Terminated()
+		err := <-wsc.Terminated()
 		if err != nil {
 			log.Fatalf("terminated with error: %s", err)
 		}
 		log.Println("exiting")
 		os.Exit(0)
+	}()
+
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			log.Println("buffer length", len(tradeChan))
+		}
 	}()
 
 	go redisWriter(config, tradeChan)
