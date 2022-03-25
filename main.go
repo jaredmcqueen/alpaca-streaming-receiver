@@ -43,7 +43,7 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 	for t := range tradeChan {
 		_ = t
 		pipe.XAdd(ctx, &redis.XAddArgs{
-			Stream: fmt.Sprintf("trades.%v", t.Symbol),
+			Stream: "trades",
 			ID:     "*",
 			Values: map[string]string{
 				"i": fmt.Sprintf("%v", t.ID),
