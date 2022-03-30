@@ -5,7 +5,7 @@ COPY . .
 RUN go build -o main main.go
 
 # run stage
-FROM busybox:latest as deploy
+FROM alpine:latest as deploy
 WORKDIR /app
 COPY --from=builder /app/main .
 COPY app.env .
