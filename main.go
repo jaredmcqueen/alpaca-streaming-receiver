@@ -11,10 +11,11 @@ import (
 
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
 	"github.com/go-redis/redis/v8"
-	"github.com/jaredmcqueen/tick-receiver/util"
+	"github.com/jaredmcqueen/alpaca-streaming-receiver/util"
 )
 
-var tradesPerSecond int32
+var websocketCount int32
+var redisCount int32
 
 func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 	ctx := context.Background()
@@ -41,34 +42,35 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 
 	start := time.Now()
 	for t := range tradeChan {
-		_ = t
 		pipe.XAdd(ctx, &redis.XAddArgs{
 			Stream: "trades",
 			ID:     "*",
 			Values: map[string]string{
-				"i": fmt.Sprintf("%v", t.ID),
+				"t": fmt.Sprintf("%v", t.Timestamp.Format(time.RFC3339)),
 				"S": t.Symbol,
-				"x": t.Exchange,
 				"p": fmt.Sprintf("%v", t.Price),
+				"i": fmt.Sprintf("%v", t.ID),
 				"s": fmt.Sprintf("%v", t.Size),
-				"t": fmt.Sprintf("%v", t.Timestamp.UnixMilli()),
 				"c": fmt.Sprintf("%v", t.Conditions),
+				"x": t.Exchange,
 				"z": t.Tape,
 			},
 		})
 		pipePayload++
 
-		if pipePayload >= 10_000 {
+		if pipePayload >= config.BatchSize {
+			redisCount += pipePayload
 			go pipe.Exec(ctx)
-			log.Printf("reached %v items in payload, sent %v trades", config.BatchSize, pipePayload)
+			// log.Printf("reached %v items in payload, sent %v trades", config.BatchSize, pipePayload)
 			start = time.Now()
 			pipePayload = 0
 		}
 
 		//TODO: there has to be a more performant design pattern here
 		if time.Since(start).Milliseconds() >= config.BatchTime {
+			redisCount += pipePayload
 			go pipe.Exec(ctx)
-			log.Printf("reached %v milliseconds, sent %v trades", config.BatchTime, pipePayload)
+			// log.Printf("reached %v milliseconds, sent %v trades", config.BatchTime, pipePayload)
 			start = time.Now()
 			pipePayload = 0
 		}
@@ -96,7 +98,7 @@ func main() {
 	tradeChan := make(chan stream.Trade, 1_000_000)
 	tradeHandler := func(t stream.Trade) {
 		tradeChan <- t
-		atomic.AddInt32(&tradesPerSecond, 1)
+		atomic.AddInt32(&websocketCount, 1)
 	}
 
 	// alpaca websocket client
@@ -123,9 +125,9 @@ func main() {
 	go func() {
 		for {
 			time.Sleep(1 * time.Second)
-			log.Println("buffer length", len(tradeChan))
-			log.Println("websockets trades per second", tradesPerSecond)
-			tradesPerSecond = 0
+			log.Println("websockets", websocketCount, "redis", redisCount)
+			websocketCount = 0
+			redisCount = 0
 
 		}
 	}()
