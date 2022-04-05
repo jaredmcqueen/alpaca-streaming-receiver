@@ -4,9 +4,9 @@ import "github.com/spf13/viper"
 
 type Config struct {
 	RedisEndpoint string `mapstructure:"REDIS_ENDPOINT"`
-	FlushDB       bool   `mapstructure:"FLUSH_DB"`
 	BatchTime     int64  `mapstructure:"BATCH_TIME"`
 	BatchSize     int32  `mapstructure:"BATCH_SIZE"`
+	Symbols       string `mapstructure:"SYMBOLS"`
 }
 
 // LoadConfig loads app.env if it exists and sets envars

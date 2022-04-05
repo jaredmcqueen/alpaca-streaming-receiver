@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -25,17 +26,11 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 		Addr: config.RedisEndpoint,
 	})
 	// test redis connection
-	r, err := rdb.Ping(ctx).Result()
+	_, err := rdb.Ping(ctx).Result()
 	if err != nil {
 		log.Fatal("error", err)
 	}
-	log.Printf("%v successfully connected to %v\n", r, config.RedisEndpoint)
-
-	// clear out the db
-	if config.FlushDB {
-		log.Println("flushing redis DB")
-		rdb.FlushAll(ctx)
-	}
+	log.Printf("successfully connected to %v\n", config.RedisEndpoint)
 
 	pipe := rdb.Pipeline()
 	var pipePayload int32
@@ -103,10 +98,11 @@ func main() {
 		atomic.AddInt32(&websocketCount, 1)
 	}
 
-	// alpaca websocket client
+	symbols := strings.Fields(config.Symbols)
+	log.Printf("creating Alpaca websockets client with %d symbols", len(symbols))
 	wsc := stream.NewStocksClient(
 		"sip",
-		stream.WithTrades(tradeHandler, "*"),
+		stream.WithTrades(tradeHandler, symbols...),
 	)
 
 	if err := wsc.Connect(ctx); err != nil {
