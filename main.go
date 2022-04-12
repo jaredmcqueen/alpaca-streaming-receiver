@@ -40,8 +40,6 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 		pipe.XAdd(ctx, &redis.XAddArgs{
 			Stream: "trades",
 			ID:     "*",
-			MaxLen: 1_000_000,
-			Approx: true,
 			Values: map[string]string{
 				"t": fmt.Sprintf("%v", t.Timestamp.Format(time.RFC3339)),
 				"S": t.Symbol,
