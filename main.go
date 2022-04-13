@@ -41,7 +41,7 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 			Stream: "trades",
 			ID:     "*",
 			Values: map[string]string{
-				"t": fmt.Sprintf("%v", t.Timestamp.Format(time.RFC3339)),
+				"t": fmt.Sprintf("%v", t.Timestamp.UnixMilli()),
 				"S": t.Symbol,
 				"p": fmt.Sprintf("%v", t.Price),
 				"i": fmt.Sprintf("%v", t.ID),
