@@ -72,6 +72,46 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 	}
 }
 
+func writeStats(config util.Config) {
+	ctx := context.Background()
+
+	log.Println("connecting to redis endpoint", config.RedisEndpoint)
+	rdb := redis.NewClient(&redis.Options{
+		Addr: config.RedisEndpoint,
+	})
+	// test redis connection
+	_, err := rdb.Ping(ctx).Result()
+	if err != nil {
+		log.Fatal("error", err)
+	}
+	log.Printf("successfully connected to %v\n", config.RedisEndpoint)
+
+	for {
+		time.Sleep(1 * time.Second)
+		log.Println("websockets", websocketCount, "redis", redisCount)
+		rdb.Do(ctx,
+			"TS.ADD",
+			//key
+			"stats:trades:alpaca",
+			//time
+			"*",
+			//value
+			fmt.Sprintf("%v", websocketCount),
+		)
+		rdb.Do(ctx,
+			"TS.ADD",
+			//key
+			"stats:trades:streams",
+			//time
+			"*",
+			//value
+			fmt.Sprintf("%v", redisCount),
+		)
+		websocketCount = 0
+		redisCount = 0
+	}
+}
+
 func main() {
 	// load config
 	config, err := util.LoadConfig(".")
@@ -118,17 +158,8 @@ func main() {
 		os.Exit(0)
 	}()
 
-	go func() {
-		for {
-			time.Sleep(1 * time.Second)
-			log.Println("websockets", websocketCount, "redis", redisCount)
-			websocketCount = 0
-			redisCount = 0
-
-		}
-	}()
-
 	go redisWriter(config, tradeChan)
+	go writeStats(config)
 
 	<-signalChan
 	fmt.Print("received termination signal")
