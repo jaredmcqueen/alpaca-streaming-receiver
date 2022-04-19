@@ -46,7 +46,7 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 				"p": fmt.Sprintf("%v", t.Price),
 				"i": fmt.Sprintf("%v", t.ID),
 				"s": fmt.Sprintf("%v", t.Size),
-				"c": fmt.Sprintf("['%v']", strings.Join(t.Conditions, `','`)),
+				"c": fmt.Sprintf("'%v'", strings.Join(t.Conditions, `','`)),
 				"x": t.Exchange,
 				"z": t.Tape,
 			},
