@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -34,9 +35,12 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 
 	pipe := rdb.Pipeline()
 	var pipePayload int32
+	var conditions []byte
 
 	start := time.Now()
 	for t := range tradeChan {
+		conditions, _ = json.Marshal(t.Conditions)
+
 		pipe.XAdd(ctx, &redis.XAddArgs{
 			Stream: "trades",
 			ID:     "*",
@@ -46,8 +50,7 @@ func redisWriter(config util.Config, tradeChan chan stream.Trade) {
 				"p": fmt.Sprintf("%v", t.Price),
 				"i": fmt.Sprintf("%v", t.ID),
 				"s": fmt.Sprintf("%v", t.Size),
-				"c": fmt.Sprintf("'%v'", strings.Join(t.Conditions, `','`)),
-				"x": t.Exchange,
+				"c": fmt.Sprintf("%s", conditions),
 				"z": t.Tape,
 			},
 		})
