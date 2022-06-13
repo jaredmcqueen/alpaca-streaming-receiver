@@ -43,7 +43,6 @@ func RedisWriter(streamChan chan util.StreamItem) {
 	pipe := rdb.Pipeline()
 	timeout := time.Duration(util.Config.BatchTimeout) * time.Millisecond
 	timer := time.NewTimer(timeout)
-	fmt.Println("timeout is", timeout)
 	for {
 		select {
 		case <-timer.C:

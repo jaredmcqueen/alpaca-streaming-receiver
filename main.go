@@ -33,7 +33,7 @@ func main() {
 		"sip",
 		stream.WithTrades(handlers.TradeHandler, symbols...),
 		stream.WithBars(handlers.MinuteBarHandler, symbols...),
-		stream.WithDailyBars(handlers.DailyBarHandler, symbols...),
+		// stream.WithDailyBars(handlers.DailyBarHandler, symbols...),
 		stream.WithStatuses(handlers.StatusHandler, symbols...),
 		// stream.WithQuotes(handlers.QuoteHandler, []string{"AAPL"}...),
 		// stream.WithQuotes(handlers.QuoteHandler, symbols...),
