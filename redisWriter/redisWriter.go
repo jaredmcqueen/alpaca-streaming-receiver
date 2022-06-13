@@ -57,6 +57,19 @@ func RedisWriter(streamChan chan util.StreamItem) {
 				ID:     "*",
 				Values: t.Values,
 			})
+			if t.Stream == "trades" {
+				pipe.Do(ctx,
+					"TS.ADD",
+					//key
+					fmt.Sprintf("trades:%v:price", t.Values["S"]),
+					//time
+					t.Values["t"],
+					//value
+					t.Values["p"],
+					"ON_DUPLICATE",
+					"FIRST",
+				)
+			}
 			if pipe.Len() == util.Config.BatchMaxSize {
 				err := RedisExec(pipe, ctx)
 				if err != nil {
