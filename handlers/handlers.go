@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/util"
@@ -33,7 +34,7 @@ var TradeHandler = func(t stream.Trade) {
 		"t": fmt.Sprintf("%v", t.Timestamp.UnixMilli()),
 		"p": fmt.Sprintf("%v", t.Price),
 		"s": fmt.Sprintf("%v", t.Size),
-		"c": fmt.Sprintf("%s", t.Conditions),
+		"c": fmt.Sprintf("%s", strings.Join(t.Conditions, "")),
 		"z": t.Tape,
 	}
 
@@ -137,6 +138,7 @@ var QuoteHandler = func(t stream.Quote) {
 	// t 	string 	RFC-3339 formatted timestamp with nanosecond precision
 	// c 	array 	quote condition
 	// z 	string 	tape
+
 	for i, c := range t.Conditions {
 		if c == " " {
 			t.Conditions[i] = "-"
@@ -152,7 +154,7 @@ var QuoteHandler = func(t stream.Quote) {
 		"bp": fmt.Sprintf("%v", t.BidPrice),
 		"bs": fmt.Sprintf("%v", t.BidSize),
 		"t":  fmt.Sprintf("%v", t.Timestamp.UnixMilli()),
-		"c":  fmt.Sprintf("%s", t.Conditions),
+		"c":  fmt.Sprintf("%s", strings.Join(t.Conditions, " ")),
 		"z":  t.Tape,
 	}
 
