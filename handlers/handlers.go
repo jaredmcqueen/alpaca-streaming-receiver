@@ -31,9 +31,10 @@ var TradeHandler = func(t stream.Trade) {
 
 	si.Values = map[string]interface{}{
 		"S": t.Symbol,
-		"t": fmt.Sprintf("%v", t.Timestamp.UnixMilli()),
+		"x": fmt.Sprintf("%v", t.Exchange),
 		"p": fmt.Sprintf("%v", t.Price),
 		"s": fmt.Sprintf("%v", t.Size),
+		"t": fmt.Sprintf("%v", t.Timestamp.UnixMilli()),
 		"c": fmt.Sprintf("%s", strings.Join(t.Conditions, "")),
 		"z": t.Tape,
 	}
