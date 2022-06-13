@@ -1,16 +1,32 @@
 package util
 
-import "github.com/spf13/viper"
+import (
+	"log"
 
-type Config struct {
+	"github.com/spf13/viper"
+)
+
+type ViperConfig struct {
 	RedisEndpoint string `mapstructure:"REDIS_ENDPOINT"`
-	BatchTime     int64  `mapstructure:"BATCH_TIME"`
-	BatchSize     int32  `mapstructure:"BATCH_SIZE"`
+	RedisWorkers  int    `mapstructure:"REDIS_WORKERS"`
+	BatchTimeout  int64  `mapstructure:"BATCH_TIMEOUT"`
+	BatchMaxSize  int    `mapstructure:"BATCH_MAX_SIZE"`
 	Symbols       string `mapstructure:"SYMBOLS"`
 }
 
+var Config ViperConfig
+
+func init() {
+
+	config, err := LoadConfig(".")
+	if err != nil {
+		log.Fatal("cannot load configuration", err)
+	}
+	Config = config
+}
+
 // LoadConfig loads app.env if it exists and sets envars
-func LoadConfig(path string) (config Config, err error) {
+func LoadConfig(path string) (config ViperConfig, err error) {
 	viper.AddConfigPath(path)
 	viper.SetConfigName("app")
 	viper.SetConfigType("env")
