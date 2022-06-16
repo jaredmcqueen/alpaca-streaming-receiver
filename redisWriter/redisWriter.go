@@ -68,6 +68,9 @@ func RedisWriter(streamChan chan util.StreamItem) {
 					t.Values["p"],
 					"ON_DUPLICATE",
 					"FIRST",
+					"LABELS",
+					"type",
+					"stock",
 				)
 			}
 			if pipe.Len() == util.Config.BatchMaxSize {
