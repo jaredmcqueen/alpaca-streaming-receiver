@@ -27,17 +27,16 @@ func main() {
 	}()
 
 	// symbols := strings.Fields(config.Symbols)
-	symbols := strings.Fields(util.Config.Symbols)
-	log.Printf("creating Alpaca websockets client with %d symbols", len(symbols))
+	tradeSymbols := strings.Fields(util.Config.TradeSymbols)
+	barSymbols := strings.Fields(util.Config.BarSymbols)
+	statusSymbols := strings.Fields(util.Config.StatusSymbols)
+	quoteSymbols := strings.Fields(util.Config.QuoteSymbols)
 	wsc := stream.NewStocksClient(
 		"sip",
-		stream.WithTrades(handlers.TradeHandler, symbols...),
-		stream.WithBars(handlers.MinuteBarHandler, symbols...),
-		// stream.WithDailyBars(handlers.DailyBarHandler, symbols...),
-		stream.WithStatuses(handlers.StatusHandler, symbols...),
-		// stream.WithQuotes(handlers.QuoteHandler, []string{"AAPL"}...),
-		// stream.WithQuotes(handlers.QuoteHandler, symbols...),
-		// TODO: there is something wrong in symbols
+		stream.WithTrades(handlers.TradeHandler, tradeSymbols...),
+		stream.WithBars(handlers.MinuteBarHandler, barSymbols...),
+		stream.WithStatuses(handlers.StatusHandler, statusSymbols...),
+		stream.WithQuotes(handlers.QuoteHandler, quoteSymbols...),
 	)
 
 	if err := wsc.Connect(ctx); err != nil {

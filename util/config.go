@@ -11,7 +11,10 @@ type ViperConfig struct {
 	RedisWorkers  int    `mapstructure:"REDIS_WORKERS"`
 	BatchTimeout  int64  `mapstructure:"BATCH_TIMEOUT"`
 	BatchMaxSize  int    `mapstructure:"BATCH_MAX_SIZE"`
-	Symbols       string `mapstructure:"SYMBOLS"`
+	TradeSymbols  string `mapstructure:"TRADE_SYMBOLS"`
+	BarSymbols    string `mapstructure:"BAR_SYMBOLS"`
+	StatusSymbols string `mapstructure:"STATUS_SYMBOLS"`
+	QuoteSymbols  string `mapstructure:"QUOTE_SYMBOLS"`
 }
 
 var Config ViperConfig

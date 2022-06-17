@@ -25,7 +25,7 @@ var TradeHandler = func(t stream.Trade) {
 
 	for i, c := range t.Conditions {
 		if c == " " {
-			t.Conditions[i] = "-"
+			t.Conditions[i] = "@"
 		}
 	}
 
@@ -140,11 +140,11 @@ var QuoteHandler = func(t stream.Quote) {
 	// c 	array 	quote condition
 	// z 	string 	tape
 
-	for i, c := range t.Conditions {
-		if c == " " {
-			t.Conditions[i] = "-"
-		}
-	}
+	// for i, c := range t.Conditions {
+	// 	if c == " " {
+	// 		t.Conditions[i] = "-"
+	// 	}
+	// }
 
 	si.Values = map[string]interface{}{
 		"S":  t.Symbol,
@@ -155,7 +155,7 @@ var QuoteHandler = func(t stream.Quote) {
 		"bp": fmt.Sprintf("%v", t.BidPrice),
 		"bs": fmt.Sprintf("%v", t.BidSize),
 		"t":  fmt.Sprintf("%v", t.Timestamp.UnixMilli()),
-		"c":  fmt.Sprintf("%s", strings.Join(t.Conditions, " ")),
+		"c":  fmt.Sprintf("%s", strings.Join(t.Conditions, "")),
 		"z":  t.Tape,
 	}
 
