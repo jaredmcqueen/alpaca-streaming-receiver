@@ -6,13 +6,17 @@ import (
 
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/redisWriter"
-	"github.com/jaredmcqueen/alpaca-streaming-receiver/util"
 )
 
 var quoteChan chan stream.Quote
 
 func init() {
 	quoteChan = make(chan stream.Quote, 100_000)
+}
+
+type Quote struct {
+	High float64
+	Low  float64
 }
 
 func QuoteHandler(q stream.Quote) {
@@ -46,18 +50,18 @@ func max(a, b float64) float64 {
 func ProcessQuotes() {
 	fmt.Println("starting quote processor")
 
-	quotes := make(map[string]util.Quote)
+	quotes := make(map[string]Quote)
 	timer := time.NewTimer(nextTick(time.Second))
 	for {
 		select {
 		case q := <-quoteChan:
 			if value, ok := quotes[q.Symbol]; ok {
-				quotes[q.Symbol] = util.Quote{
+				quotes[q.Symbol] = Quote{
 					High: min(q.BidPrice, value.High),
 					Low:  min(q.AskPrice, value.Low),
 				}
 			} else {
-				quotes[q.Symbol] = util.Quote{
+				quotes[q.Symbol] = Quote{
 					High: q.BidPrice,
 					Low:  q.AskPrice,
 				}
@@ -72,7 +76,7 @@ func ProcessQuotes() {
 					"t": t.UnixMilli(),
 				}
 			}
-			quotes = make(map[string]util.Quote)
+			quotes = make(map[string]Quote)
 			timer.Reset(nextTick(time.Second))
 		}
 	}
