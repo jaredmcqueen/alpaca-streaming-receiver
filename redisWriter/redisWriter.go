@@ -10,6 +10,12 @@ import (
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/util"
 )
 
+var RedisChan chan map[string]interface{}
+
+func init() {
+	RedisChan = make(chan map[string]interface{}, 100_000)
+}
+
 func RedisExec(pipe redis.Pipeliner, ctx context.Context) error {
 
 	// nothing to send
@@ -25,17 +31,17 @@ func RedisExec(pipe redis.Pipeliner, ctx context.Context) error {
 	return nil
 }
 
-func RedisWriter(streamChan chan util.StreamItem) {
+func RedisWriter() {
 	ctx := context.Background()
 
 	log.Println("connecting to redis endpoint", util.Config.RedisEndpoint)
 	rdb := redis.NewClient(&redis.Options{
 		Addr: util.Config.RedisEndpoint,
 	})
+
 	// test redis connection
 	_, err := rdb.Ping(ctx).Result()
 	if err != nil {
-		// TODO: use a backoff pattern to try to recover?
 		log.Fatal("error", err)
 	}
 	log.Printf("successfully connected to %v\n", util.Config.RedisEndpoint)
@@ -43,6 +49,7 @@ func RedisWriter(streamChan chan util.StreamItem) {
 	pipe := rdb.Pipeline()
 	timeout := time.Duration(util.Config.BatchTimeout) * time.Millisecond
 	timer := time.NewTimer(timeout)
+
 	for {
 		select {
 		case <-timer.C:
@@ -51,28 +58,12 @@ func RedisWriter(streamChan chan util.StreamItem) {
 				fmt.Println("error sending to redis", err)
 			}
 			timer.Reset(timeout)
-		case t := <-streamChan:
+		case item := <-RedisChan:
 			pipe.XAdd(ctx, &redis.XAddArgs{
-				Stream: t.Stream,
+				Stream: item["T"].(string),
 				ID:     "*",
-				Values: t.Values,
+				Values: item,
 			})
-			// if t.Stream == "trades" {
-			// 	pipe.Do(ctx,
-			// 		"TS.ADD",
-			// 		//key
-			// 		fmt.Sprintf("trades:%v:price", t.Values["S"]),
-			// 		//time
-			// 		t.Values["t"],
-			// 		//value
-			// 		t.Values["p"],
-			// 		"ON_DUPLICATE",
-			// 		"FIRST",
-			// 		"LABELS",
-			// 		"type",
-			// 		"stock",
-			// 	)
-			// }
 			if pipe.Len() == util.Config.BatchMaxSize {
 				err := RedisExec(pipe, ctx)
 				if err != nil {
@@ -80,7 +71,6 @@ func RedisWriter(streamChan chan util.StreamItem) {
 				}
 
 				pipe = rdb.Pipeline()
-				// https://pkg.go.dev/time#Timer.Reset
 				if !timer.Stop() {
 					<-timer.C
 				}

@@ -7,14 +7,14 @@ import (
 )
 
 type ViperConfig struct {
+	BarSymbols    string `mapstructure:"BAR_SYMBOLS"`
+	BatchMaxSize  int    `mapstructure:"BATCH_MAX_SIZE"`
+	BatchTimeout  int64  `mapstructure:"BATCH_TIMEOUT"`
+	QuoteSymbols  string `mapstructure:"QUOTE_SYMBOLS"`
 	RedisEndpoint string `mapstructure:"REDIS_ENDPOINT"`
 	RedisWorkers  int    `mapstructure:"REDIS_WORKERS"`
-	BatchTimeout  int64  `mapstructure:"BATCH_TIMEOUT"`
-	BatchMaxSize  int    `mapstructure:"BATCH_MAX_SIZE"`
-	TradeSymbols  string `mapstructure:"TRADE_SYMBOLS"`
-	BarSymbols    string `mapstructure:"BAR_SYMBOLS"`
 	StatusSymbols string `mapstructure:"STATUS_SYMBOLS"`
-	QuoteSymbols  string `mapstructure:"QUOTE_SYMBOLS"`
+	TradeSymbols  string `mapstructure:"TRADE_SYMBOLS"`
 }
 
 var Config ViperConfig
@@ -33,7 +33,6 @@ func LoadConfig(path string) (config ViperConfig, err error) {
 	viper.AddConfigPath(path)
 	viper.SetConfigName("app")
 	viper.SetConfigType("env")
-
 	viper.AutomaticEnv()
 
 	err = viper.ReadInConfig()
@@ -42,5 +41,8 @@ func LoadConfig(path string) (config ViperConfig, err error) {
 	}
 
 	err = viper.Unmarshal(&config)
+	if err != nil {
+		return
+	}
 	return
 }

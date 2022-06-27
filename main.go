@@ -20,31 +20,26 @@ func main() {
 
 	// catch control+c
 	signalChan := make(chan os.Signal, 1)
+
 	signal.Notify(signalChan, os.Interrupt)
 	go func() {
 		<-signalChan
 		cancel()
 	}()
 
-	// symbols := strings.Fields(config.Symbols)
-	tradeSymbols := strings.Fields(util.Config.TradeSymbols)
-	barSymbols := strings.Fields(util.Config.BarSymbols)
-	statusSymbols := strings.Fields(util.Config.StatusSymbols)
-	quoteSymbols := strings.Fields(util.Config.QuoteSymbols)
 	wsc := stream.NewStocksClient(
 		"sip",
-		stream.WithTrades(handlers.TradeHandler, tradeSymbols...),
-		stream.WithBars(handlers.MinuteBarHandler, barSymbols...),
-		stream.WithStatuses(handlers.StatusHandler, statusSymbols...),
-		stream.WithQuotes(handlers.QuoteHandler, quoteSymbols...),
+		stream.WithBars(handlers.BarHandler, strings.Fields(util.Config.BarSymbols)...),
+		stream.WithStatuses(handlers.StatusHandler, strings.Fields(util.Config.StatusSymbols)...),
+		stream.WithQuotes(handlers.QuoteHandler, strings.Fields(util.Config.QuoteSymbols)...),
+		stream.WithTrades(handlers.TradeHandler, strings.Fields(util.Config.TradeSymbols)...),
 	)
-
 	if err := wsc.Connect(ctx); err != nil {
 		log.Fatalf("could not connect to alpaca: %s", err)
 	}
-
 	log.Println("successfully connected to alpaca")
-	// starting a goroutine that checks whether the client has terminated
+
+	// control+C
 	go func() {
 		err := <-wsc.Terminated()
 		if err != nil {
@@ -54,8 +49,15 @@ func main() {
 		os.Exit(0)
 	}()
 
+	// start the processors
+	go handlers.ProcessBars()
+	go handlers.ProcessQuotes()
+	go handlers.ProcessStatuses()
+	go handlers.ProcessTrades()
+
+	// start the redis writer
 	for i := 0; i < util.Config.RedisWorkers; i++ {
-		go redisWriter.RedisWriter(util.StreamChan)
+		go redisWriter.RedisWriter()
 	}
 
 	<-signalChan
