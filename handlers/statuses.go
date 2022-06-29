@@ -11,20 +11,16 @@ import (
 )
 
 var (
-	statusChan          = make(chan stream.TradingStatus, util.Config.ChannelQueueSize)
-	alpacaStatusCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "alpaca_receiver_websockets_statuses_total",
-		Help: "trading statuses received from alpaca",
-	})
-	redisStatusCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "alpaca_receiver_redis_writer_statuses_total",
-		Help: "trade statuses written to redis streams",
-	})
+	statusChan    = make(chan stream.TradingStatus, util.Config.ChannelQueueSize)
+	statusCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "alpaca_receiver_statuses_total",
+		Help: "trading statuses",
+	}, []string{"type"})
 )
 
 func StatusHandler(t stream.TradingStatus) {
 	statusChan <- t
-	alpacaTradeCounter.Inc()
+	statusCounter.WithLabelValues("websocket").Inc()
 }
 
 func ProcessStatuses() {
@@ -41,6 +37,6 @@ func ProcessStatuses() {
 			"t":  fmt.Sprintf("%v", s.Timestamp.UnixMilli()),
 			"z":  s.Tape,
 		}
-		alpacaStatusCounter.Inc()
+		statusCounter.WithLabelValues("redis").Inc()
 	}
 }

@@ -11,20 +11,16 @@ import (
 )
 
 var (
-	barChan          = make(chan stream.Bar, util.Config.ChannelQueueSize)
-	alpacaBarCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "alpaca_receiver_websockets_bars_total",
-		Help: "minute bars received from alpaca",
-	})
-	redisBarCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "alpaca_receiver_redis_writer_bars_total",
-		Help: "bars written to redis streams",
-	})
+	barChan    = make(chan stream.Bar, util.Config.ChannelQueueSize)
+	barCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "alpaca_receiver_bars_total",
+		Help: "minute bars",
+	}, []string{"type"})
 )
 
 func BarHandler(b stream.Bar) {
 	barChan <- b
-	alpacaBarCounter.Inc()
+	barCounter.WithLabelValues("websocket").Inc()
 }
 
 func ProcessBars() {
@@ -41,6 +37,6 @@ func ProcessBars() {
 			"v": fmt.Sprintf("%v", b.Volume),
 			"t": fmt.Sprintf("%v", b.Timestamp.UnixMilli()),
 		}
-		redisBarCounter.Inc()
+		barCounter.WithLabelValues("redis").Inc()
 	}
 }

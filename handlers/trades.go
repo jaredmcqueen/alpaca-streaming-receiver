@@ -12,20 +12,16 @@ import (
 )
 
 var (
-	tradeChan          = make(chan stream.Trade, util.Config.ChannelQueueSize)
-	alpacaTradeCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "alpaca_receiver_websockets_trades_total",
-		Help: "trades received from alpaca",
-	})
-	redisTradeCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "alpaca_receiver_redis_writer_trades_total",
-		Help: "trades written to redis streams",
-	})
+	tradeChan    = make(chan stream.Trade, util.Config.ChannelQueueSize)
+	tradeCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "alpaca_receiver_trades_counter",
+		Help: "trades",
+	}, []string{"type"})
 )
 
 func TradeHandler(t stream.Trade) {
 	tradeChan <- t
-	alpacaTradeCounter.Inc()
+	tradeCounter.WithLabelValues("websocket").Inc()
 }
 
 func ProcessTrades() {
@@ -49,6 +45,6 @@ func ProcessTrades() {
 			"c": fmt.Sprintf("%s", strings.Join(t.Conditions, "")),
 			"z": t.Tape,
 		}
-		redisTradeCounter.Inc()
+		tradeCounter.WithLabelValues("redis").Inc()
 	}
 }

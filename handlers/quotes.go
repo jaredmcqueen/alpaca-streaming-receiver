@@ -12,20 +12,16 @@ import (
 )
 
 var (
-	quoteChan          = make(chan stream.Quote, util.Config.ChannelQueueSize)
-	alpacaQuoteCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "alpaca_receiver_websockets_quotes_total",
-		Help: "quotes received from alpaca",
-	})
-	redisQuoteCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "alpaca_receiver_redis_writer_quotes_total",
-		Help: "quotes written to redis streams",
-	})
+	quoteChan    = make(chan stream.Quote, util.Config.ChannelQueueSize)
+	quoteCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "alpaca_receiver_quotes_total",
+		Help: "quotes",
+	}, []string{"type"})
 )
 
 func QuoteHandler(q stream.Quote) {
 	quoteChan <- q
-	alpacaQuoteCounter.Inc()
+	quoteCounter.WithLabelValues("websocket").Inc()
 }
 
 type Quote struct {
@@ -88,7 +84,7 @@ func ProcessQuotes() {
 					"h": v.High,
 					"t": t.UnixMilli(),
 				}
-				redisQuoteCounter.Inc()
+				quoteCounter.WithLabelValues("redis").Inc()
 			}
 			quotes = make(map[string]Quote)
 			timer.Reset(nextTick(time.Second))
