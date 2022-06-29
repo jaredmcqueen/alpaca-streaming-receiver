@@ -58,7 +58,6 @@ func RedisWriter(id int) {
 	for {
 		select {
 		case <-timer.C:
-			fmt.Println("timer")
 			err := flush()
 			if err != nil {
 				fmt.Println("error sending to redis", err)
@@ -72,7 +71,6 @@ func RedisWriter(id int) {
 				Values: item,
 			})
 			if pipe.Len() >= util.Config.RedisBatchMaxSize {
-				fmt.Println("batch")
 				err := flush()
 				if err != nil {
 					fmt.Println("error sending to redis", err)
