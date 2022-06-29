@@ -6,30 +6,37 @@ import (
 	"github.com/spf13/viper"
 )
 
-type ViperConfig struct {
-	BarSymbols    string `mapstructure:"BAR_SYMBOLS"`
-	BatchMaxSize  int    `mapstructure:"BATCH_MAX_SIZE"`
-	BatchTimeout  int64  `mapstructure:"BATCH_TIMEOUT"`
-	QuoteSymbols  string `mapstructure:"QUOTE_SYMBOLS"`
-	RedisEndpoint string `mapstructure:"REDIS_ENDPOINT"`
-	RedisWorkers  int    `mapstructure:"REDIS_WORKERS"`
-	StatusSymbols string `mapstructure:"STATUS_SYMBOLS"`
-	TradeSymbols  string `mapstructure:"TRADE_SYMBOLS"`
+type Envars struct {
+	RedisBatchMaxSize int    `mapstructure:"REDIS_BATCH_MAX_SIZE"`
+	RedisBatchTimeout int64  `mapstructure:"REDIS_BATCH_TIMEOUT"`
+	RedisEndpoint     string `mapstructure:"REDIS_ENDPOINT"`
+	RedisWorkers      int    `mapstructure:"REDIS_WORKERS"`
+
+	SymbolsBars     string `mapstructure:"SYMBOLS_BARS"`
+	SymbolsQuotes   string `mapstructure:"SYMBOLS_QUOTES"`
+	SymbolsStatuses string `mapstructure:"SYMBOLS_STATUSES"`
+	SymbolsTrades   string `mapstructure:"SYMBOLS_TRADES"`
+
+	EnableBars     bool `mapstructure:"ENABLE_BARS"`
+	EnableQuotes   bool `mapstructure:"ENABLE_QUOTES"`
+	EnableStatuses bool `mapstructure:"ENABLE_STATUSES"`
+	EnableTrades   bool `mapstructure:"ENABLE_TRADES"`
+
+	ChannelQueueSize int `mapstructure:"CHANNEL_QUEUE_SIZE"`
 }
 
-var Config ViperConfig
+var Config Envars
 
 func init() {
-
-	config, err := LoadConfig(".")
+	config, err := loadConfig(".")
 	if err != nil {
 		log.Fatal("cannot load configuration", err)
 	}
 	Config = config
 }
 
-// LoadConfig loads app.env if it exists and sets envars
-func LoadConfig(path string) (config ViperConfig, err error) {
+// loadConfig loads app.env if it exists and sets envars
+func loadConfig(path string) (envars Envars, err error) {
 	viper.AddConfigPath(path)
 	viper.SetConfigName("app")
 	viper.SetConfigType("env")
@@ -40,9 +47,6 @@ func LoadConfig(path string) (config ViperConfig, err error) {
 		return
 	}
 
-	err = viper.Unmarshal(&config)
-	if err != nil {
-		return
-	}
+	err = viper.Unmarshal(&envars)
 	return
 }

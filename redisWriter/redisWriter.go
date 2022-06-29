@@ -8,55 +8,62 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/util"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var RedisChan chan map[string]interface{}
+var (
+	RedisChan          = make(chan map[string]interface{}, util.Config.ChannelQueueSize)
+	redisWorkerCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "alpaca_receiver_redis_writer_worker_total",
+		Help: "number of events sent to redis by a single worker",
+	}, []string{"worker"})
+)
 
-func init() {
-	RedisChan = make(chan map[string]interface{}, 100_000)
-}
+func RedisWriter(id int) {
+	fmt.Println("starting redis writer", id)
 
-func RedisExec(pipe redis.Pipeliner, ctx context.Context) error {
-
-	// nothing to send
-	if pipe.Len() == 0 {
-		return nil
-	}
-
-	_, err := pipe.Exec(context.Background())
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func RedisWriter() {
 	ctx := context.Background()
 
-	log.Println("connecting to redis endpoint", util.Config.RedisEndpoint)
+	fmt.Println("connecting to redis endpoint", util.Config.RedisEndpoint)
 	rdb := redis.NewClient(&redis.Options{
 		Addr: util.Config.RedisEndpoint,
 	})
 
-	// test redis connection
-	_, err := rdb.Ping(ctx).Result()
+	err := rdb.Ping(ctx).Err()
 	if err != nil {
-		log.Fatal("error", err)
+		log.Fatal("could not ping redis server", err)
 	}
-	log.Printf("successfully connected to %v\n", util.Config.RedisEndpoint)
 
 	pipe := rdb.Pipeline()
-	timeout := time.Duration(util.Config.BatchTimeout) * time.Millisecond
+	timeout := time.Duration(util.Config.RedisBatchTimeout) * time.Millisecond
 	timer := time.NewTimer(timeout)
+	flush := func() error {
+		// nothing to send
+		if pipe.Len() == 0 {
+			return nil
+		}
+
+		// pipe.Exec clears out the len, so emit to prometheus here
+		redisWorkerCounter.WithLabelValues(fmt.Sprintf("%v", id)).Add(float64(pipe.Len()))
+
+		_, err := pipe.Exec(ctx)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
 
 	for {
 		select {
 		case <-timer.C:
-			err := RedisExec(pipe, ctx)
+			fmt.Println("timer")
+			err := flush()
 			if err != nil {
 				fmt.Println("error sending to redis", err)
 			}
+
 			timer.Reset(timeout)
 		case item := <-RedisChan:
 			pipe.XAdd(ctx, &redis.XAddArgs{
@@ -64,16 +71,17 @@ func RedisWriter() {
 				ID:     "*",
 				Values: item,
 			})
-			if pipe.Len() == util.Config.BatchMaxSize {
-				err := RedisExec(pipe, ctx)
+			if pipe.Len() >= util.Config.RedisBatchMaxSize {
+				fmt.Println("batch")
+				err := flush()
 				if err != nil {
 					fmt.Println("error sending to redis", err)
 				}
 
-				pipe = rdb.Pipeline()
 				if !timer.Stop() {
 					<-timer.C
 				}
+
 				timer.Reset(timeout)
 			}
 		}
