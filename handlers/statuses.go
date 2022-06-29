@@ -32,7 +32,7 @@ func ProcessStatuses() {
 
 	for s := range statusChan {
 		redisWriter.RedisChan <- map[string]interface{}{
-			"T":  "status",
+			"T":  "statuses",
 			"S":  s.Symbol,
 			"sc": s.StatusCode,
 			"sm": s.StatusMsg,
