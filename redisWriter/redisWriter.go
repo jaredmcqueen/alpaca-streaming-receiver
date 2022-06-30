@@ -35,6 +35,7 @@ func RedisWriter(id int) {
 		log.Fatal("could not ping redis server", err)
 	}
 
+	workerName := fmt.Sprintf("worker-%v", id)
 	pipe := rdb.Pipeline()
 	timeout := time.Duration(util.Config.RedisBatchTimeout) * time.Millisecond
 	timer := time.NewTimer(timeout)
@@ -45,7 +46,7 @@ func RedisWriter(id int) {
 		}
 
 		// pipe.Exec clears out the len, so emit to prometheus here
-		redisWorkerCounter.WithLabelValues(fmt.Sprintf("%v", id)).Add(float64(pipe.Len()))
+		redisWorkerCounter.WithLabelValues(workerName).Add(float64(pipe.Len()))
 
 		_, err := pipe.Exec(ctx)
 		if err != nil {

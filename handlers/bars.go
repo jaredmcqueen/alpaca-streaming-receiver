@@ -6,21 +6,15 @@ import (
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/redisWriter"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/util"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	barChan    = make(chan stream.Bar, util.Config.ChannelQueueSize)
-	barCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "alpaca_receiver_bars_total",
-		Help: "minute bars",
-	}, []string{"type"})
+	barChan = make(chan stream.Bar, util.Config.ChannelQueueSize)
 )
 
 func BarHandler(b stream.Bar) {
 	barChan <- b
-	barCounter.WithLabelValues("websocket").Inc()
+	websocketCounter.WithLabelValues("bars").Inc()
 }
 
 func ProcessBars() {
@@ -37,6 +31,6 @@ func ProcessBars() {
 			"v": fmt.Sprintf("%v", b.Volume),
 			"t": fmt.Sprintf("%v", b.Timestamp.UnixMilli()),
 		}
-		barCounter.WithLabelValues("redis").Inc()
+		redisCounter.WithLabelValues("bars").Inc()
 	}
 }

@@ -7,21 +7,15 @@ import (
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/redisWriter"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/util"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	quoteChan    = make(chan stream.Quote, util.Config.ChannelQueueSize)
-	quoteCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "alpaca_receiver_quotes_total",
-		Help: "quotes",
-	}, []string{"type"})
+	quoteChan = make(chan stream.Quote, util.Config.ChannelQueueSize)
 )
 
 func QuoteHandler(q stream.Quote) {
 	quoteChan <- q
-	quoteCounter.WithLabelValues("websocket").Inc()
+	websocketCounter.WithLabelValues("quotes").Inc()
 }
 
 type Quote struct {
@@ -66,13 +60,13 @@ func ProcessQuotes() {
 		case q := <-quoteChan:
 			if value, ok := quotes[q.Symbol]; ok {
 				quotes[q.Symbol] = Quote{
-					High: max(q.BidPrice, value.High),
-					Low:  min(q.AskPrice, value.Low),
+					Low:  min(q.BidPrice, value.Low),
+					High: max(q.AskPrice, value.High),
 				}
 			} else {
 				quotes[q.Symbol] = Quote{
-					High: q.BidPrice,
-					Low:  q.AskPrice,
+					Low:  q.BidPrice,
+					High: q.AskPrice,
 				}
 			}
 		case t := <-timer.C:
@@ -84,7 +78,7 @@ func ProcessQuotes() {
 					"h": v.High,
 					"t": t.UnixMilli(),
 				}
-				quoteCounter.WithLabelValues("redis").Inc()
+				redisCounter.WithLabelValues("quotes").Inc()
 			}
 			quotes = make(map[string]Quote)
 			timer.Reset(nextTick(time.Second))

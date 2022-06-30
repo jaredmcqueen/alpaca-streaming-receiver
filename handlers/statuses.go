@@ -6,21 +6,15 @@ import (
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/redisWriter"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/util"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	statusChan    = make(chan stream.TradingStatus, util.Config.ChannelQueueSize)
-	statusCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "alpaca_receiver_statuses_total",
-		Help: "trading statuses",
-	}, []string{"type"})
+	statusChan = make(chan stream.TradingStatus, util.Config.ChannelQueueSize)
 )
 
 func StatusHandler(t stream.TradingStatus) {
 	statusChan <- t
-	statusCounter.WithLabelValues("websocket").Inc()
+	websocketCounter.WithLabelValues("statuses").Inc()
 }
 
 func ProcessStatuses() {
@@ -37,6 +31,6 @@ func ProcessStatuses() {
 			"t":  fmt.Sprintf("%v", s.Timestamp.UnixMilli()),
 			"z":  s.Tape,
 		}
-		statusCounter.WithLabelValues("redis").Inc()
+		redisCounter.WithLabelValues("statuses").Inc()
 	}
 }
