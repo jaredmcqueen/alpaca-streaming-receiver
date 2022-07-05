@@ -25,10 +25,9 @@ func main() {
 	go alpaca.WebsocketReceiver()
 
 	// start the processors
+	go handlers.ProcessHLV()
 	go handlers.ProcessBars()
-	go handlers.ProcessQuotes()
 	go handlers.ProcessStatuses()
-	go handlers.ProcessTrades()
 
 	// start the redis writer
 	for i := 1; i < util.Config.RedisWorkers+1; i++ {

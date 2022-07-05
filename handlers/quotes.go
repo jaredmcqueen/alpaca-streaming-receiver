@@ -1,11 +1,9 @@
 package handlers
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
-	"github.com/jaredmcqueen/alpaca-streaming-receiver/redisWriter"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/util"
 )
 
@@ -16,11 +14,6 @@ var (
 func QuoteHandler(q stream.Quote) {
 	quoteChan <- q
 	websocketCounter.WithLabelValues("quotes").Inc()
-}
-
-type Quote struct {
-	High float64
-	Low  float64
 }
 
 func nextTick(duration time.Duration) time.Duration {
@@ -47,41 +40,4 @@ func min(a, b float64) float64 {
 	}
 
 	return b
-}
-
-// process quotes batches quotes by 1 second and emits max(high) and min(low)
-func ProcessQuotes() {
-	fmt.Println("starting quote processor")
-
-	quotes := make(map[string]Quote)
-	timer := time.NewTimer(nextTick(time.Second))
-	for {
-		select {
-		case q := <-quoteChan:
-			if value, ok := quotes[q.Symbol]; ok {
-				quotes[q.Symbol] = Quote{
-					Low:  min(q.BidPrice, value.Low),
-					High: max(q.AskPrice, value.High),
-				}
-			} else {
-				quotes[q.Symbol] = Quote{
-					Low:  q.BidPrice,
-					High: q.AskPrice,
-				}
-			}
-		case t := <-timer.C:
-			for k, v := range quotes {
-				redisWriter.RedisChan <- map[string]interface{}{
-					"T": "quotes",
-					"S": k,
-					"l": v.Low,
-					"h": v.High,
-					"t": t.UnixMilli(),
-				}
-				redisCounter.WithLabelValues("quotes").Inc()
-			}
-			quotes = make(map[string]Quote)
-			timer.Reset(nextTick(time.Second))
-		}
-	}
 }
