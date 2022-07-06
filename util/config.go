@@ -22,7 +22,8 @@ type Envars struct {
 	EnableStatuses bool `mapstructure:"ENABLE_STATUSES"`
 	EnableTrades   bool `mapstructure:"ENABLE_TRADES"`
 
-	ChannelQueueSize int `mapstructure:"CHANNEL_QUEUE_SIZE"`
+	ChannelQueueSize       int    `mapstructure:"CHANNEL_QUEUE_SIZE"`
+	AllowedTradeConditions string `mapstructure:"ALLOWED_TRADE_CONDITIONS"`
 }
 
 var Config Envars

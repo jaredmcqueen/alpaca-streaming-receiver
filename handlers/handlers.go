@@ -15,4 +15,9 @@ var (
 		Name: "alpaca_receiver_processors_total",
 		Help: "messages count from processors",
 	}, []string{"type"})
+
+	cacheCounter = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "alpaca_receiver_processors_channel_cache",
+		Help: "cache size from processors",
+	}, []string{"type"})
 )

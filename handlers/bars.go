@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/redisWriter"
@@ -11,6 +12,15 @@ import (
 var (
 	barChan = make(chan stream.Bar, util.Config.ChannelQueueSize)
 )
+
+func init() {
+	go func() {
+		for {
+			cacheCounter.WithLabelValues("bars").Set(float64(len(quoteChan)))
+			time.Sleep(time.Second)
+		}
+	}()
+}
 
 func BarHandler(b stream.Bar) {
 	barChan <- b
