@@ -10,9 +10,8 @@ import (
 )
 
 var promHandlerCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "alpaca_receiver_sender",
-	Help: "messages count from senders",
-}, []string{"type"})
+	Name: "alpaca_client",
+}, []string{"data_feed"})
 
 type alpacaClient struct {
 	con stream.StocksClient
@@ -70,7 +69,7 @@ func (r *alpacaClient) AddStatusHandler(ch chan any, symbols []string) {
 	log.Println("Subscribing to Statuses", symbols)
 	handler := func(status stream.TradingStatus) {
 		ch <- status
-		promHandlerCounter.WithLabelValues("statuss").Inc()
+		promHandlerCounter.WithLabelValues("statues").Inc()
 	}
 	if err := r.con.SubscribeToStatuses(handler, symbols...); err != nil {
 		log.Fatal(err)

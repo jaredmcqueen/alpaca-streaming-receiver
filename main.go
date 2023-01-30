@@ -32,14 +32,14 @@ func main() {
 	}()
 
 	flag.PrintDefaults()
-	natsEndpoint := flag.String("natsEndpoint", "nats://localhost:4222", "nats endpoint")
+	natsEndpoint := flag.String("natsEndpoint", "nats.nats:4222", "nats endpoint")
 	alpacaFeed := flag.String("feed", "sip", "alpaca feed")
 	enableBars := flag.Bool("bars", true, "enable bars")
 	enableQuotes := flag.Bool("quotes", true, "enable quotes")
 	enableTrades := flag.Bool("trades", true, "enable trades")
 	enableStatuses := flag.Bool("statuses", true, "enable trading statuses")
 	channelBuffer := flag.Int("channelBuffer", 1_000, "channel buffer")
-	symbols := flag.String("symbols", "AAPL FB AMZN TSLA", "space separated ticker symbols")
+	symbols := flag.String("symbols", "*", "space separated ticker symbols")
 	flag.Parse()
 
 	symbolsSlice := strings.Split(*symbols, " ")
@@ -91,7 +91,7 @@ func main() {
 		statusChan := make(chan any, *channelBuffer)
 		natsClient.AddStream("statuses", []string{"statuses"})
 		natsClient.AttachWriter(statusChan, "statuses")
-		alpacaClient.AddTradeHandler(statusChan, symbolsSlice)
+		alpacaClient.AddStatusHandler(statusChan, symbolsSlice)
 	}
 
 	<-signalChan

@@ -12,16 +12,15 @@ import (
 
 // prometheus metrics
 var promSenderCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "alpaca_receiver_sender",
-	Help: "messages count from senders",
-}, []string{"type"})
+	Name: "nats_client",
+}, []string{"subject"})
 
 type natsClient struct {
 	conn nats.JetStreamContext
 }
 
 func NewNatsClient(endpoint string) (*natsClient, error) {
-	nc, err := nats.Connect(endpoint)
+	nc, err := nats.Connect("nats://" + endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +64,7 @@ func encodeJSON(v any) ([]byte, error) {
 }
 
 func (s *natsClient) AddStream(streamName string, subjects []string) {
-	r, err := s.conn.AddStream(&nats.StreamConfig{
+	_, err := s.conn.AddStream(&nats.StreamConfig{
 		Name:     streamName,
 		Subjects: subjects,
 	})
@@ -76,5 +75,4 @@ func (s *natsClient) AddStream(streamName string, subjects []string) {
 		}
 		log.Fatal(err)
 	}
-	log.Println(r)
 }
