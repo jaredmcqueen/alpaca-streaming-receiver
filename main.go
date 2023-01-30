@@ -1,19 +1,29 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 
-	"github.com/jaredmcqueen/alpaca-streaming-receiver/alpaca"
-	"github.com/jaredmcqueen/alpaca-streaming-receiver/handlers"
-	"github.com/jaredmcqueen/alpaca-streaming-receiver/redisWriter"
-	"github.com/jaredmcqueen/alpaca-streaming-receiver/util"
+	"github.com/jaredmcqueen/alpaca-streaming-receiver/client"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+func init() {
+	// prom metrics
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		_ = http.ListenAndServe(":9100", nil)
+	}()
+}
+
 func main() {
+	log.Println("starting alpaca-streaming-receiver")
+
 	// catch control+c
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
@@ -21,25 +31,68 @@ func main() {
 		<-signalChan
 	}()
 
-	// start the websocket receiver
-	go alpaca.WebsocketReceiver()
+	flag.PrintDefaults()
+	natsEndpoint := flag.String("natsEndpoint", "nats://localhost:4222", "nats endpoint")
+	alpacaFeed := flag.String("feed", "sip", "alpaca feed")
+	enableBars := flag.Bool("bars", true, "enable bars")
+	enableQuotes := flag.Bool("quotes", true, "enable quotes")
+	enableTrades := flag.Bool("trades", true, "enable trades")
+	enableStatuses := flag.Bool("statuses", true, "enable trading statuses")
+	channelBuffer := flag.Int("channelBuffer", 1_000, "channel buffer")
+	symbols := flag.String("symbols", "AAPL FB AMZN TSLA", "space separated ticker symbols")
+	flag.Parse()
 
-	// start the processors
-	go handlers.ProcessBars()
-	go handlers.ProcessQuotes()
-	go handlers.ProcessTrades()
-	go handlers.ProcessStatuses()
+	symbolsSlice := strings.Split(*symbols, " ")
+	log.Println("subscribed symbols are", symbolsSlice)
 
-	// start the redis writer
-	for i := 1; i < util.Config.RedisWorkers+1; i++ {
-		go redisWriter.RedisWriter(i)
+	log.Println("variables set:")
+	flag.VisitAll(func(f *flag.Flag) {
+		log.Printf("%s: %s (%s)", f.Name, f.Value, f.DefValue)
+	})
+
+	// connect to nats
+	natsClient, err := client.NewNatsClient(*natsEndpoint)
+	if err != nil {
+		log.Fatal("connecting to nats", err)
 	}
 
-	// metrics
-	go func() {
-		http.Handle("/metrics", promhttp.Handler())
-		http.ListenAndServe(":9100", nil)
-	}()
+	// connect to alpaca
+	alpacaClient, err := client.NewAlpacaClient(*alpacaFeed)
+	if err != nil {
+		log.Fatal("connecting to alpaca", err)
+	}
+
+	// enable bars
+	if *enableBars {
+		barChan := make(chan any, *channelBuffer)
+		natsClient.AddStream("bars", []string{"bars"})
+		natsClient.AttachWriter(barChan, "bars")
+		alpacaClient.AddBarHandler(barChan, symbolsSlice)
+	}
+
+	// enable quotes
+	if *enableQuotes {
+		quoteChan := make(chan any, *channelBuffer)
+		natsClient.AddStream("quotes", []string{"quotes"})
+		natsClient.AttachWriter(quoteChan, "quotes")
+		alpacaClient.AddQuoteHandler(quoteChan, symbolsSlice)
+	}
+
+	// enable trades
+	if *enableTrades {
+		tradeChan := make(chan any, *channelBuffer)
+		natsClient.AddStream("trades", []string{"trades"})
+		natsClient.AttachWriter(tradeChan, "trades")
+		alpacaClient.AddTradeHandler(tradeChan, symbolsSlice)
+	}
+
+	// enable statuses
+	if *enableStatuses {
+		statusChan := make(chan any, *channelBuffer)
+		natsClient.AddStream("statuses", []string{"statuses"})
+		natsClient.AttachWriter(statusChan, "statuses")
+		alpacaClient.AddTradeHandler(statusChan, symbolsSlice)
+	}
 
 	<-signalChan
 	fmt.Print("received termination signal")
