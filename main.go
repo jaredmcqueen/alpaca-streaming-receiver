@@ -32,13 +32,12 @@ func main() {
 	}()
 
 	flag.PrintDefaults()
-	natsEndpoint := flag.String("natsEndpoint", "nats.nats:4222", "nats endpoint")
+	natsEndpoint := flag.String("natsEndpoint", "localhost:4222", "nats endpoint")
 	alpacaFeed := flag.String("feed", "sip", "alpaca feed")
 	enableBars := flag.Bool("bars", true, "enable bars")
 	enableQuotes := flag.Bool("quotes", true, "enable quotes")
 	enableTrades := flag.Bool("trades", true, "enable trades")
 	enableStatuses := flag.Bool("statuses", true, "enable trading statuses")
-	channelBuffer := flag.Int("channelBuffer", 1_000, "channel buffer")
 	symbols := flag.String("symbols", "*", "space separated ticker symbols")
 	flag.Parse()
 
@@ -51,47 +50,46 @@ func main() {
 	})
 
 	// connect to nats
-	natsClient, err := client.NewNatsClient(*natsEndpoint)
-	if err != nil {
-		log.Fatal("connecting to nats", err)
-	}
+	natsClient := client.NewNatsClient(*natsEndpoint)
+	defer natsClient.Conn.Close()
 
 	// connect to alpaca
-	alpacaClient, err := client.NewAlpacaClient(*alpacaFeed)
-	if err != nil {
-		log.Fatal("connecting to alpaca", err)
-	}
+	alpacaClient := client.NewAlpacaClient(*alpacaFeed)
 
 	// enable bars
 	if *enableBars {
-		barChan := make(chan any, *channelBuffer)
-		natsClient.AddStream("bars", []string{"bars"})
-		natsClient.AttachWriter(barChan, "bars")
-		alpacaClient.AddBarHandler(barChan, symbolsSlice)
+		subject := "bars"
+		ch := make(chan []byte)
+		natsClient.AddStream(subject)
+		natsClient.AddPublisher(ch, subject)
+		alpacaClient.AddBarHandler(ch, symbolsSlice)
 	}
 
 	// enable quotes
 	if *enableQuotes {
-		quoteChan := make(chan any, *channelBuffer)
-		natsClient.AddStream("quotes", []string{"quotes"})
-		natsClient.AttachWriter(quoteChan, "quotes")
-		alpacaClient.AddQuoteHandler(quoteChan, symbolsSlice)
+		subject := "quotes"
+		ch := make(chan []byte)
+		natsClient.AddStream(subject)
+		natsClient.AddPublisher(ch, subject)
+		alpacaClient.AddQuoteHandler(ch, symbolsSlice)
 	}
 
 	// enable trades
 	if *enableTrades {
-		tradeChan := make(chan any, *channelBuffer)
-		natsClient.AddStream("trades", []string{"trades"})
-		natsClient.AttachWriter(tradeChan, "trades")
-		alpacaClient.AddTradeHandler(tradeChan, symbolsSlice)
+		subject := "trades"
+		ch := make(chan []byte)
+		natsClient.AddStream(subject)
+		natsClient.AddPublisher(ch, subject)
+		alpacaClient.AddTradeHandler(ch, symbolsSlice)
 	}
 
 	// enable statuses
 	if *enableStatuses {
-		statusChan := make(chan any, *channelBuffer)
-		natsClient.AddStream("statuses", []string{"statuses"})
-		natsClient.AttachWriter(statusChan, "statuses")
-		alpacaClient.AddStatusHandler(statusChan, symbolsSlice)
+		subject := "statuses"
+		ch := make(chan []byte)
+		natsClient.AddStream(subject)
+		natsClient.AddPublisher(ch, subject)
+		alpacaClient.AddStatusHandler(ch, symbolsSlice)
 	}
 
 	<-signalChan

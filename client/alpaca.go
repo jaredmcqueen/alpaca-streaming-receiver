@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 
 	"github.com/alpacahq/alpaca-trade-api-go/v2/marketdata/stream"
@@ -13,65 +14,73 @@ var promHandlerCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "alpaca_client",
 }, []string{"data_feed"})
 
-type alpacaClient struct {
-	con stream.StocksClient
+type AlpacaClient struct {
+	Conn stream.StocksClient
 }
 
-func NewAlpacaClient(feed string) (*alpacaClient, error) {
+func NewAlpacaClient(feed string) *AlpacaClient {
 	conn := stream.NewStocksClient(feed)
 
 	log.Println("connecting to Alpaca Data Streaming")
 	if err := conn.Connect(context.Background()); err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 
-	r := alpacaClient{
-		con: conn,
+	r := AlpacaClient{
+		Conn: conn,
 	}
 
-	return &r, nil
+	return &r
 }
 
-func (r *alpacaClient) AddBarHandler(ch chan any, symbols []string) {
+func encodeJSON(v any) []byte {
+	thing, err := json.Marshal(v)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return thing
+}
+
+func (r *AlpacaClient) AddBarHandler(ch chan []byte, symbols []string) {
 	log.Println("Subscribing to Bars", symbols)
 	handler := func(bar stream.Bar) {
-		ch <- bar
+		ch <- encodeJSON(bar)
 		promHandlerCounter.WithLabelValues("bars").Inc()
 	}
-	if err := r.con.SubscribeToBars(handler, symbols...); err != nil {
+	if err := r.Conn.SubscribeToBars(handler, symbols...); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (r *alpacaClient) AddQuoteHandler(ch chan any, symbols []string) {
+func (r *AlpacaClient) AddQuoteHandler(ch chan []byte, symbols []string) {
 	log.Println("Subscribing to Quotes", symbols)
 	handler := func(quote stream.Quote) {
-		ch <- quote
+		ch <- encodeJSON(quote)
 		promHandlerCounter.WithLabelValues("quotes").Inc()
 	}
-	if err := r.con.SubscribeToQuotes(handler, symbols...); err != nil {
+	if err := r.Conn.SubscribeToQuotes(handler, symbols...); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (r *alpacaClient) AddTradeHandler(ch chan any, symbols []string) {
+func (r *AlpacaClient) AddTradeHandler(ch chan []byte, symbols []string) {
 	log.Println("Subscribing to Trades", symbols)
 	handler := func(trade stream.Trade) {
-		ch <- trade
+		ch <- encodeJSON(trade)
 		promHandlerCounter.WithLabelValues("trades").Inc()
 	}
-	if err := r.con.SubscribeToTrades(handler, symbols...); err != nil {
+	if err := r.Conn.SubscribeToTrades(handler, symbols...); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (r *alpacaClient) AddStatusHandler(ch chan any, symbols []string) {
+func (r *AlpacaClient) AddStatusHandler(ch chan []byte, symbols []string) {
 	log.Println("Subscribing to Statuses", symbols)
 	handler := func(status stream.TradingStatus) {
-		ch <- status
+		ch <- encodeJSON(status)
 		promHandlerCounter.WithLabelValues("statues").Inc()
 	}
-	if err := r.con.SubscribeToStatuses(handler, symbols...); err != nil {
+	if err := r.Conn.SubscribeToStatuses(handler, symbols...); err != nil {
 		log.Fatal(err)
 	}
 }
