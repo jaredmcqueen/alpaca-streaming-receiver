@@ -2,6 +2,7 @@ package client
 
 import (
 	"log"
+	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -48,10 +49,11 @@ func (nc *NatsClient) AddPublisher(ch chan []byte, subject string) {
 	}()
 }
 
-func (nc *NatsClient) AddStream(subject string) {
+func (nc *NatsClient) AddStream(subject string, ageLimit time.Duration) {
 	_, err := nc.Js.AddStream(&nats.StreamConfig{
 		Name:     subject,
 		Subjects: []string{subject},
+		MaxAge:   ageLimit,
 	})
 	if err != nil {
 		if err == nats.ErrStreamNameAlreadyInUse {
