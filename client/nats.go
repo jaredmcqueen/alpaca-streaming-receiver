@@ -38,10 +38,10 @@ func NewNatsClient(endpoint string) *NatsClient {
 	}
 }
 
-func (nc *NatsClient) AddPublisher(ch chan []byte, subject string) {
+func (nc *NatsClient) AddJSPublisher(ch chan []byte, subject string) {
 	go func() {
 		for msg := range ch {
-			_, err := nc.Js.Publish(subject, msg)
+			_, err := nc.Js.PublishAsync(subject, msg)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -49,15 +49,21 @@ func (nc *NatsClient) AddPublisher(ch chan []byte, subject string) {
 	}()
 }
 
-func (nc *NatsClient) AddStream(subject string, ageLimit time.Duration) {
-	_, err := nc.Js.AddStream(&nats.StreamConfig{
-		Name:     subject,
-		Subjects: []string{subject},
-		MaxAge:   ageLimit,
-	})
+func (nc *NatsClient) AddStream(streamName string, subjectNames []string, ageLimit time.Duration) {
+	streamConfig := &nats.StreamConfig{
+		Name:      streamName,
+		Subjects:  subjectNames,
+		Retention: nats.WorkQueuePolicy,
+		MaxAge:    ageLimit,
+	}
+	_, err := nc.Js.AddStream(streamConfig)
 	if err != nil {
 		if err == nats.ErrStreamNameAlreadyInUse {
-			log.Println("stream", subject, "already exists")
+			log.Printf("stream %v already exists, updating stream config\n", streamName)
+			_, err := nc.Js.UpdateStream(streamConfig)
+			if err != nil {
+				log.Fatal(err)
+			}
 			return
 		}
 		log.Fatal(err)

@@ -59,39 +59,36 @@ func main() {
 	// connect to alpaca
 	alpacaClient := client.NewAlpacaClient(*alpacaFeed)
 
+	natsClient.AddStream("ALPACA", []string{"ALPACA.bars", "ALPACA.quotes", "ALPACA.trades", "ALPACA.statuses"}, ageLimit)
 	// enable bars
 	if *enableBars {
-		subject := "bars"
+		subject := "ALPACA.bars"
 		ch := make(chan []byte)
-		natsClient.AddStream(subject, ageLimit)
-		natsClient.AddPublisher(ch, subject)
+		natsClient.AddJSPublisher(ch, subject)
 		alpacaClient.AddBarHandler(ch, symbolsSlice)
 	}
 
 	// enable quotes
 	if *enableQuotes {
-		subject := "quotes"
+		subject := "ALPACA.quotes"
 		ch := make(chan []byte)
-		natsClient.AddStream(subject, ageLimit)
-		natsClient.AddPublisher(ch, subject)
+		natsClient.AddJSPublisher(ch, subject)
 		alpacaClient.AddQuoteHandler(ch, symbolsSlice)
 	}
 
 	// enable trades
 	if *enableTrades {
-		subject := "trades"
+		subject := "ALPACA.trades"
 		ch := make(chan []byte)
-		natsClient.AddStream(subject, ageLimit)
-		natsClient.AddPublisher(ch, subject)
+		natsClient.AddJSPublisher(ch, subject)
 		alpacaClient.AddTradeHandler(ch, symbolsSlice)
 	}
 
 	// enable statuses
 	if *enableStatuses {
-		subject := "statuses"
+		subject := "ALPACA.statuses"
 		ch := make(chan []byte)
-		natsClient.AddStream(subject, ageLimit)
-		natsClient.AddPublisher(ch, subject)
+		natsClient.AddJSPublisher(ch, subject)
 		alpacaClient.AddStatusHandler(ch, symbolsSlice)
 	}
 
