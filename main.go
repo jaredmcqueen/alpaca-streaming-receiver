@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 
 	"github.com/jaredmcqueen/alpaca-streaming-receiver/client"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -34,7 +33,7 @@ func main() {
 
 	flag.PrintDefaults()
 	natsEndpoint := flag.String("natsEndpoint", "localhost:4222", "nats endpoint")
-	natsStreamAgeLimit := flag.Int("natsStreamAgeLimit", 24, "age limit for published messages in hours")
+	natsStreamMaxBytes := flag.Int("natsStreamMaxBytes", 4, "max memory in GB")
 	alpacaFeed := flag.String("feed", "sip", "alpaca feed")
 	enableBars := flag.Bool("bars", true, "enable bars")
 	enableQuotes := flag.Bool("quotes", true, "enable quotes")
@@ -42,8 +41,6 @@ func main() {
 	enableStatuses := flag.Bool("statuses", true, "enable trading statuses")
 	symbols := flag.String("symbols", "*", "space separated ticker symbols")
 	flag.Parse()
-
-	ageLimit := time.Hour * time.Duration(*natsStreamAgeLimit)
 	symbolsSlice := strings.Split(*symbols, " ")
 	log.Println("subscribed symbols are", symbolsSlice)
 
@@ -59,7 +56,7 @@ func main() {
 	// connect to alpaca
 	alpacaClient := client.NewAlpacaClient(*alpacaFeed)
 
-	natsClient.AddStream("ALPACA", []string{"ALPACA.bars", "ALPACA.quotes", "ALPACA.trades", "ALPACA.statuses"}, ageLimit)
+	natsClient.AddStream("ALPACA", []string{"ALPACA.>"}, *natsStreamMaxBytes)
 	// enable bars
 	if *enableBars {
 		subject := "ALPACA.bars"

@@ -2,7 +2,6 @@ package client
 
 import (
 	"log"
-	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -49,12 +48,13 @@ func (nc *NatsClient) AddJSPublisher(ch chan []byte, subject string) {
 	}()
 }
 
-func (nc *NatsClient) AddStream(streamName string, subjectNames []string, ageLimit time.Duration) {
+func (nc *NatsClient) AddStream(streamName string, subjectNames []string, maxBytes int) {
 	streamConfig := &nats.StreamConfig{
 		Name:      streamName,
 		Subjects:  subjectNames,
 		Retention: nats.WorkQueuePolicy,
-		MaxAge:    ageLimit,
+		MaxBytes:  int64(maxBytes * 1024 * 1024 * 1024), // 4GB
+		Storage:   nats.MemoryStorage,
 	}
 	_, err := nc.Js.AddStream(streamConfig)
 	if err != nil {
